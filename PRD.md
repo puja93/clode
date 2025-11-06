@@ -98,76 +98,189 @@ To deliver a futuristic, delightful trivia experience where users can test their
 ### 5.1 Architecture Overview
 
 ```
-┌─────────────┐      ┌──────────────┐      ┌─────────────┐
-│   Frontend  │◄────►│   LiveKit    │◄────►│  API Layer  │
-│   (Vite.js) │      │ Voice Agent  │      │             │
-└─────────────┘      └──────────────┘      └─────────────┘
-                            │
-                            ▼
-        ┌──────────────────────────────────┐
-        │   AI Services                    │
-        │  - OpenAI (STT)                  │
-        │  - OpenAI (LLM)                  │
-        │  - ElevenLabs (TTS)              │
-        └──────────────────────────────────┘
-                            │
-                            ▼
-                   ┌─────────────┐
-                   │  OpenTDB    │
-                   │     API     │
-                   └─────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                      Your Application                        │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌────────────────────┐         ┌──────────────────────┐    │
+│  │  Frontend (Vite)   │  HTTP   │  Backend (FastAPI)   │    │
+│  │                    │◄───────►│                      │    │
+│  │ - React UI         │  REST   │ - Token Generation   │    │
+│  │ - Animations       │  API    │ - Session Manager    │    │
+│  │ - User Input       │         │ - API Keys (secure)  │    │
+│  │ - Quiz Display     │         │ - OpenTDB API calls  │    │
+│  │ - Voice Agent      │         │ - Webhook Receiver   │    │
+│  │   Participant      │         │                      │    │
+│  └────────────────────┘         │ ┌──────────────────┐ │    │
+│           │                     │ │ Voice Agent      │ │    │
+│           │                     │ │ (LiveKit Agents) │ │    │
+│           │                     │ │                  │ │    │
+│           │                     │ │ - STT/TTS Logic  │ │    │
+│           │                     │ │ - Quiz Voice I/O │ │    │
+│           │                     │ │ - LLM calls      │ │    │
+│           │                     │ └──────────────────┘ │    │
+│           │                     │ ┌──────────────────┐ │    │
+│           │                     │ │ SQLite Database  │ │    │
+│           │                     │ │ - Sessions       │ │    │
+│           │                     │ │ - Answers        │ │    │
+│           │                     │ │ - Scores         │ │    │
+│           │                     │ └──────────────────┘ │    │
+│           │                     └──────────────────────┘    │
+│           │                              │                  │
+│           └──────────────────┬───────────┘                  │
+│                              │ WebRTC                       │
+│                              │ (Voice)                      │
+└──────────────────────────────┼──────────────────────────────┘
+                               │
+                    ┌──────────▼─────────┐
+                    │   LiveKit Cloud    │
+                    │   (Voice Router)   │
+                    └────────────────────┘
+                               │
+                ┌──────────────┼──────────────┐
+                │              │              │
+                ▼              ▼              ▼
+        ┌──────────────┐ ┌──────────┐ ┌─────────────┐
+        │  OpenAI API  │ │ElevenLabs│ │  OpenTDB    │
+        │ (STT, LLM)   │ │  (TTS)   │ │  (Questions)│
+        └──────────────┘ └──────────┘ └─────────────┘
 ```
 
 ### 5.2 Technology Stack
 
 #### Frontend
-- **Framework**: Vite.js (React/Vue/Vanilla - to be determined)
+- **Framework**: Vite.js with React (or Vue)
 - **Styling**: Scandinavian design principles (minimalist, clean, functional)
 - **Animations**: Anime.js + additional animation libraries for futuristic effects
-- **State Management**: To be determined based on framework choice
+- **State Management**: React Context or similar based on framework choice
+- **HTTP Client**: Axios or Fetch API for backend communication
 
-#### Voice Agent Infrastructure
-- **Platform**: LiveKit
+#### Backend/API Server
+- **Framework**: FastAPI (Python 3.9+)
+- **Database**: SQLite for session management and quiz state
+- **Key Responsibilities**:
+  - Secure API key storage (OpenAI, ElevenLabs, LiveKit)
+  - LiveKit token generation for frontend
+  - Session management (quiz progress, answers, scores)
+  - Webhook receiver for LiveKit events
+  - REST API endpoints for quiz operations
+
+#### Voice Agent (Embedded in Backend)
+- **Platform**: LiveKit Agents Framework (Python)
+- **Deployment**: Runs as part of the FastAPI backend service
 - **Components**:
   - **STT (Speech-to-Text)**: OpenAI Whisper API
   - **LLM (Language Model)**: OpenAI GPT-4/GPT-3.5
-  - **TTS (Text-to-Speech)**: ElevenLabs
+  - **TTS (Text-to-Speech)**: ElevenLabs API
+  - **Voice Communication**: LiveKit WebRTC
+- **Responsibilities**:
+  - Joins LiveKit room when quiz starts
+  - Reads quiz guidelines and questions (TTS)
+  - Listens to user answers (STT)
+  - Validates answers using LLM
+  - Provides explanations in review phase
+  - Updates backend with answer data
 
-#### Backend/API
-- **Quiz Data Source**: OpenTDB API
+#### External Data Sources
+- **Quiz Data**: OpenTDB API
   - Endpoint: `https://opentdb.com/api.php?amount=10`
   - No authentication required
+  - Called by backend, not frontend (security)
 
-### 5.3 API Integration Requirements
+### 5.3 Communication Flow
 
-| Service | Purpose | Authentication | Configuration |
-|---------|---------|----------------|---------------|
-| OpenTDB | Question retrieval | None | Public API |
-| OpenAI | STT & LLM | API Key | Environment variable placeholder |
-| ElevenLabs | TTS | API Key | Environment variable placeholder |
-| LiveKit | Voice agent | API Key/Token | Environment variable placeholder |
-
-### 5.4 Environment Variables
-
-```bash
-# OpenAI Configuration
-VITE_OPENAI_API_KEY=your_openai_api_key_here
-
-# ElevenLabs Configuration
-VITE_ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
-
-# LiveKit Configuration
-VITE_LIVEKIT_URL=your_livekit_url_here
-VITE_LIVEKIT_API_KEY=your_livekit_api_key_here
-VITE_LIVEKIT_API_SECRET=your_livekit_api_secret_here
+#### Frontend → Backend Communication
+```
+1. User opens app
+2. Frontend requests LiveKit token: GET /api/quiz/token
+3. Backend generates token securely using LiveKit API keys
+4. Frontend connects to LiveKit room with token
+5. Agent joins room and quiz begins
+6. Frontend listens to voice from agent (WebRTC via LiveKit)
+7. User speaks answer
+8. Frontend sends answer to backend: POST /api/quiz/answer
+9. Backend updates SQLite session with answer
+10. Agent continues (backend updates agent via internal calls)
+11. Quiz completes
+12. Frontend requests results: GET /api/quiz/results/{session_id}
+13. Backend returns score and answers from SQLite
 ```
 
-### 5.5 LiveKit Implementation
-- Reference latest documentation: https://docs.livekit.io/home
-- Implement real-time voice communication
-- Configure agent with STT, LLM, and TTS pipeline
-- Handle voice activity detection (VAD)
-- Manage conversation state across quiz phases
+#### Backend → External APIs
+```
+- OpenTDB: Backend fetches 10 questions via HTTP GET
+- OpenAI: Agent calls for STT (transcribe speech) and LLM (validate/explain)
+- ElevenLabs: Agent calls for TTS (convert text to speech)
+- LiveKit: Backend calls for token generation; Agent connects via WebRTC
+```
+
+### 5.4 API Integration Requirements
+
+| Service | Purpose | Called By | Authentication | Configuration |
+|---------|---------|-----------|-----------------|-----------------|
+| OpenTDB | Question retrieval | Backend | None | Public API |
+| OpenAI | STT & LLM | Backend + Agent | API Key | Environment variable |
+| ElevenLabs | TTS | Agent | API Key | Environment variable |
+| LiveKit | Voice communication | Backend + Agent | API Key + Secret | Environment variables |
+
+### 5.5 Environment Variables
+
+#### Backend (.env file - NEVER expose these to frontend)
+```bash
+# OpenAI Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+
+# ElevenLabs Configuration
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+
+# LiveKit Configuration
+LIVEKIT_URL=your_livekit_cloud_url
+LIVEKIT_API_KEY=your_livekit_api_key_here
+LIVEKIT_API_SECRET=your_livekit_api_secret_here
+
+# Database
+DATABASE_URL=sqlite:///./quiz.db
+
+# Application
+ENVIRONMENT=production
+```
+
+#### Frontend (.env file - NO SENSITIVE KEYS)
+```bash
+# Backend API URL
+VITE_API_URL=http://localhost:8000
+
+# This is OK to expose (public info)
+VITE_APP_NAME=Voice Trivia Quiz
+```
+
+
+### 5.6 LiveKit Agent Implementation Details
+
+#### Agent Responsibilities
+- **Quiz Introduction Phase**:
+  - Reads quiz guidelines and background info (TTS)
+  - Asks user if ready to begin
+  - Listens for readiness confirmation (STT)
+
+- **Quiz Phase**:
+  - Reads each question and options (TTS)
+  - Listens for user's answer letter/choice (STT)
+  - Uses LLM to validate/confirm answer semantics
+  - Moves to next question automatically
+  - **Cannot** engage with clarification questions
+
+- **Review Phase**:
+  - Agent resets interaction model
+  - Listens for user requests for explanations
+  - Uses LLM to generate explanations for incorrect answers
+  - Reads explanations aloud (TTS)
+
+#### Implementation References
+- LiveKit Agents Framework: https://docs.livekit.io/agents/
+- LiveKit Voice AI Quickstart: https://docs.livekit.io/agents/start/voice-ai/
+- OpenAI Whisper (STT): https://platform.openai.com/docs/guides/speech-to-text
+- ElevenLabs TTS: https://elevenlabs.io/docs/api-reference
 
 ---
 
@@ -280,14 +393,33 @@ VITE_LIVEKIT_API_SECRET=your_livekit_api_secret_here
    - Requires setup and configuration
    - Self-hosted or cloud options
 
-### 8.2 Development Dependencies
+### 8.2 Development & Runtime Dependencies
+
+#### Frontend
 - Node.js (v18+ recommended)
 - npm/yarn/pnpm
 - Vite build tooling
+- React (or Vue)
 - Anime.js
-- LiveKit client SDK
-- OpenAI SDK
-- ElevenLabs SDK
+- LiveKit client SDK (web)
+- Axios or Fetch API
+
+#### Backend (Python)
+- Python 3.9+
+- FastAPI web framework
+- Uvicorn (ASGI server)
+- python-dotenv (environment variables)
+- httpx (async HTTP client)
+- SQLAlchemy or similar ORM
+- livekit-agents (LiveKit Python SDK)
+- livekit (LiveKit server SDK)
+- openai (OpenAI SDK)
+- requests (HTTP library)
+
+#### System Requirements
+- Git
+- Docker (optional, for deployment)
+- Render account (for hosting)
 
 ---
 
@@ -341,35 +473,84 @@ The following features are explicitly **not included** in the initial version:
 
 ## 12. Development Phases
 
-### Phase 1: Foundation (Week 1-2)
-- Set up Vite.js project
-- Implement basic Scandinavian-styled UI
-- Integrate OpenTDB API
-- Display static quiz questions
+### Phase 1: Backend Foundation (Week 1-2)
+**Backend (Python + FastAPI)**
+- Set up FastAPI project structure
+- Configure SQLite database with session schema
+- Implement environment variable management
+- Create OpenTDB API integration (fetch 10 questions)
+- Set up LiveKit token generation endpoint
+- Create basic API routes (`/api/quiz/token`, `/api/quiz/start`)
 
-### Phase 2: Voice Integration (Week 3-4)
-- Set up LiveKit agent
-- Configure OpenAI STT/LLM
-- Configure ElevenLabs TTS
-- Implement voice command recognition
+**Frontend (Vite + React)**
+- Set up Vite project with React
+- Implement basic Scandinavian-designed layout
+- Create homepage and quiz introduction screens
+- Implement Anime.js animation framework
 
-### Phase 3: Core Quiz Flow (Week 5-6)
-- Implement quiz introduction flow
-- Build voice-based answer selection
-- Create question progression logic
-- Disable clarifications during quiz phase
+### Phase 2: Backend Voice Agent Setup (Week 3)
+**Backend**
+- Set up LiveKit Agents Framework (Python)
+- Configure OpenAI API integration (for STT and LLM)
+- Configure ElevenLabs integration (for TTS)
+- Implement agent entry point
+- Test basic voice connection to LiveKit
 
-### Phase 4: Review System (Week 7)
-- Build review screen
+### Phase 3: Core Quiz Agent Logic (Week 4-5)
+**Backend Agent**
+- Implement quiz introduction (read guidelines, ask if ready)
+- Implement question reading loop (TTS)
+- Implement answer listening (STT)
+- Implement answer validation (LLM)
+- Manage quiz phase state (no clarifications during quiz)
+
+**Backend API**
+- Create `/api/quiz/answer` endpoint to receive answers from frontend
+- Create `/api/quiz/session/{id}` endpoints for session management
+- Implement session update with answers in SQLite
+
+### Phase 4: Frontend Quiz Interface (Week 5-6)
+- Connect frontend to backend API for LiveKit tokens
+- Implement voice visualizations and loading states
+- Create question display with answer options
+- Implement answer submission flow
+- Add smooth transitions between questions
+- Test microphone access and permissions
+
+### Phase 5: Review & Explanation System (Week 7)
+**Backend Agent**
+- Implement review phase (different interaction mode)
+- Implement explanation generation (LLM)
+- Implement explanation reading (TTS)
+
+**Backend API**
+- Create `/api/quiz/results/{id}` endpoint
 - Implement score calculation
-- Enable post-quiz voice interactions
-- Add explanation functionality
 
-### Phase 5: Polish & Launch (Week 8)
-- Add animations with Anime.js
+**Frontend**
+- Build results/review screen
+- Display correct/incorrect answers
+- Implement interaction for requesting explanations
+- Display explanations from agent
+
+### Phase 6: Polish & Animations (Week 8)
+- Add Anime.js animations for:
+  - Page transitions
+  - Question reveals
+  - Answer selections
+  - Score displays
+  - Voice activity indicators
 - Optimize performance
-- Testing and bug fixes
-- Deploy to production
+- Cross-browser testing
+- Accessibility review
+
+### Phase 7: Testing & Deployment (Week 9)
+- End-to-end testing
+- Load testing for voice agent
+- Deployment to Render (both frontend and backend)
+- Production environment configuration
+- Monitoring and logging setup
+- Bug fixes and final adjustments
 
 ---
 
@@ -427,9 +608,10 @@ The following features are explicitly **not included** in the initial version:
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-11-06 | Generated from Storyline | Initial PRD creation |
+| 2.0 | 2025-11-06 | Architecture Refinement | Finalized tech stack (Python + FastAPI + SQLite), embedded agent in backend, detailed communication flows, comprehensive development phases |
 
 ---
 
-**Document Status**: Draft
+**Document Status**: Ready for Development
 **Last Updated**: 2025-11-06
-**Next Review**: Upon stakeholder feedback
+**Next Review**: After Phase 1 completion
