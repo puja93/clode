@@ -1,0 +1,18 @@
+Requirements for Trivia Quizzes
+
+
+User Story:
+
+I wanna make trivia QnA website with voice agent accompanying along the way while the user answer from one question to another.
+Initially the web will display the background of the QnA in the front, and the agent will read this guideline. 
+User is then asked if its clear and ready to complete the QnA. It should be multiple choices (boolean, or four), and user can’t click to select the answer, but by saying the letter of the answer. 
+Livekit agent will pick it up and then select the answer, then move to the next question. 
+While doing the quizzes, the user can’t ask question/clarfication from the agent. Then by the end the agent will review the answers from the user and by displaying their answers that are correct and wrong. 
+At the reviewing stage, when quizzes have all been answered, the user can interact again with the agent. If user intends, he/she can pick any question and ask the agent to clarifiy why the answer is like that..
+
+
+Technicalities:
+For every user, just make the quiz 10 questions for now, the question can be retrieved through GET without credentials from https://opentdb.com/api.php?amount=10
+You need to read the latest documentation for livekit: https://docs.livekit.io/home to create the voice agent..
+I want the agent to have (STT, LLM, TTS). STT & LLM using openai, and TTS using elvenlabs, i’m gonna provide the key, just provide the placeholder to put the key..
+The frontend should be Vite.js, and make it scandinavian design . Add any animation necessary (such as anime.js) or other library that can provide a delighted futuristic experience when user see the webpage. 
